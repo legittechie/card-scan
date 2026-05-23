@@ -7,9 +7,11 @@ Standalone iOS + Android client for the card-scan API. Implements the UX contrac
 ```bash
 cd mobile
 cp .env.example .env
-# Fill EXPO_PUBLIC_SUPABASE_* (same project as Platform) and EXPO_PUBLIC_CARD_SCAN_API_URL
+# Copy EXPO_PUBLIC_SUPABASE_* from ../Platform/.env.local (not the placeholder values)
 npm install
 ```
+
+**Important:** `mobile/.env` must use a **real, DNS-resolvable** Supabase URL. The placeholder `your-project-ref.supabase.co` causes `ERR_NAME_NOT_RESOLVED` at sign-in. For local Supabase on a phone, use your computer's LAN IP (`http://192.168.x.x:54321`), not `127.0.0.1`.
 
 From repo root:
 
