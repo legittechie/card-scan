@@ -22,20 +22,22 @@ class ScanCaller:
 
 async def _validate_supabase_jwt(token: str) -> str:
     settings = get_settings()
-    if not settings.supabase_url or not settings.supabase_anon_key:
+    base_url = settings.supabase_url.strip().rstrip("/")
+    anon_key = settings.supabase_anon_key.strip()
+    if not base_url or not anon_key:
         raise HTTPException(
             status_code=503,
             detail="Supabase auth is not configured on the server",
         )
 
-    url = settings.supabase_url.rstrip("/") + "/auth/v1/user"
+    url = base_url + "/auth/v1/user"
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.get(
                 url,
                 headers={
                     "Authorization": f"Bearer {token}",
-                    "apikey": settings.supabase_anon_key,
+                    "apikey": anon_key,
                 },
             )
     except httpx.HTTPError as exc:
