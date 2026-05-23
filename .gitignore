@@ -1,0 +1,28 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.env
+*.db
+data/jobs.sqlite
+data/uploads/
+.genaiscript/
+.DS_Store
+*.egg-info/
+dist/
+build/
+
+# Optional: keep samples private
+samples/*.jpg
+samples/*.jpeg
+samples/*.png
+!samples/.gitkeep
+
+# Mobile / Expo
+mobile/node_modules/
+mobile/.expo/
+mobile/dist/
+mobile/.env
+mobile/expo-env.d.ts

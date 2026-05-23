@@ -1,0 +1,40 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      SYNC_PROCESS: "true"
+      SKIP_PADDLEOCR: "false"
+      SKIP_VISION: "false"
+      VISION_URL: http://vision:11434
+      VISION_MODEL: llama3.2-vision:11b
+      SQLITE_PATH: /app/data/jobs.sqlite
+      UPLOAD_DIR: /app/data/uploads
+      ADMIN_PURGE_SECRET: dev-admin-secret
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      - vision
+
+  vision:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    environment:
+      OLLAMA_KEEP_ALIVE: 5m
+    volumes:
+      - ollama_data:/root/.ollama
+    # GPU optional: uncomment on Linux with NVIDIA
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+volumes:
+  ollama_data:

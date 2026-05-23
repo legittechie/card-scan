@@ -1,0 +1,21 @@
+# Phase 7: Example GCP billing budget (apply via gcloud or Cloud Console)
+# Adjust project, amounts, and notification channels for your org.
+displayName: card-scan-monthly-budget
+budgetFilter:
+  projects:
+    - projects/PROJECT_ID
+amount:
+  specifiedAmount:
+    currencyCode: USD
+    units: "100"
+thresholdRules:
+  - thresholdPercent: 0.5
+    spendBasis: CURRENT_SPEND
+  - thresholdPercent: 0.9
+    spendBasis: CURRENT_SPEND
+  - thresholdPercent: 1.0
+    spendBasis: FORECASTED_SPEND
+notificationsRule:
+  pubsubTopic: projects/PROJECT_ID/topics/billing-alerts
+  # Or enable default billing admins:
+  # disableDefaultIamRecipients: false
