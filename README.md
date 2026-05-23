@@ -123,3 +123,14 @@ export SCAN_API_KEY=$(gcloud secrets versions access latest --secret=SCAN_API_KE
 ```
 
 Local dev needs no auth (`AUTH_MODE=disabled`). Set `SUPABASE_URL` + `SUPABASE_ANON_KEY` on Cloud Run for JWT clients. Use `USE_GCP_AUTH=true` only if Cloud Run IAM is enabled instead of public invoker.
+
+## Git
+
+Initial commit is on branch `main`. To push to GitHub:
+
+```bash
+git remote add origin git@github.com:YOUR_ORG/card-scan.git
+git push -u origin main
+```
+
+Or create the repo with GitHub CLI: `gh repo create card-scan --private --source=. --remote=origin --push`
