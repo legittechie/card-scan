@@ -34,6 +34,13 @@ make mobile-dev
 - **Physical device + prod API:** use `.env` with prod URLs; device must reach HTTPS API.
 - **Local API:** `make dev` on host + `EXPO_PUBLIC_CARD_SCAN_API_URL=http://YOUR_LAN_IP:8080` with `AUTH_MODE=disabled` on API.
 
+If Metro fails with `expo-asset cannot be found`, run `npx expo install expo-asset expo-font` in `mobile/` (already pinned in `package.json`).
+
+## Expo Go vs dev build
+
+- **Expo Go (default):** `make mobile-dev` — fastest for v1; uses Expo Go app on your phone. Camera and image picker work in Go for SDK 52.
+- **Dev build (optional):** use EAS `eas build --profile development` when you need custom native modules or TestFlight; not required for this app’s current dependencies.
+
 ## Authentication
 
 Use the **same Supabase session** as the Platform app. On every `POST /scan` and `GET /status/{job_id}`:
