@@ -1,0 +1,51 @@
+{
+  "cli": {
+    "version": ">= 12.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "ios": {
+        "simulator": true
+      },
+      "env": {
+        "EXPO_PUBLIC_CARD_SCAN_API_TARGET": "production",
+        "EXPO_PUBLIC_CARD_SCAN_API_URL": "https://card-scan-api-827778437977.us-central1.run.app",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://dlbdizdhttofpuosvdjb.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRsYmRpemRodHRvZnB1b3N2ZGpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1NTg2OTQsImV4cCI6MjA5NTEzNDY5NH0.XxOYHVMff91r0sZst0zd4kRq9Xviypr9WWpaPaQJ4Y8"
+      },
+      "channel": "development"
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_CARD_SCAN_API_TARGET": "production",
+        "EXPO_PUBLIC_CARD_SCAN_API_URL": "https://card-scan-api-827778437977.us-central1.run.app",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://dlbdizdhttofpuosvdjb.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRsYmRpemRodHRvZnB1b3N2ZGpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1NTg2OTQsImV4cCI6MjA5NTEzNDY5NH0.XxOYHVMff91r0sZst0zd4kRq9Xviypr9WWpaPaQJ4Y8"
+      },
+      "channel": "preview"
+    },
+    "production": {
+      "autoIncrement": true,
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "env": {
+        "EXPO_PUBLIC_CARD_SCAN_API_TARGET": "production",
+        "EXPO_PUBLIC_CARD_SCAN_API_URL": "https://card-scan-api-827778437977.us-central1.run.app",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://dlbdizdhttofpuosvdjb.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRsYmRpemRodHRvZnB1b3N2ZGpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1NTg2OTQsImV4cCI6MjA5NTEzNDY5NH0.XxOYHVMff91r0sZst0zd4kRq9Xviypr9WWpaPaQJ4Y8"
+      },
+      "channel": "production"
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}
