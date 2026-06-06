@@ -15,6 +15,11 @@ IMAGE="${IMAGE:-${AR_REGION}-docker.pkg.dev/${GCP_PROJECT}/${AR_REPO}/card-scan-
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
 
+# Supabase credentials always come from card_scan/mobile/.env (not Platform or card_scan/.env).
+# shellcheck source=../gcp/load_mobile_supabase_env.sh
+source "$(dirname "$0")/../gcp/load_mobile_supabase_env.sh"
+echo "Using Supabase from $MOBILE_ENV_FILE → ${SUPABASE_URL}"
+
 if [[ "$REGION" != "$AR_REGION" ]]; then
   echo "NOTE: Cloud Run region=$REGION, Artifact Registry=$AR_REGION (image pulled cross-region)."
   echo "      Cloud Tasks queue must exist in TASKS_LOCATION=$REGION (run infra/tasks/create_queue.sh)."
@@ -34,7 +39,7 @@ _run_deploy() {
     --max-instances=3 \
     --ingress=all \
     --no-invoker-iam-check \
-    --timeout=300 \
+    --timeout=900 \
     --set-env-vars="USE_GCS=true,GCS_BUCKET=${GCS_BUCKET:-card-scan-uploads},GCP_PROJECT=${GCP_PROJECT},TASKS_LOCATION=${REGION},TASKS_QUEUE=card-scan-queue,SYNC_PROCESS=false,SKIP_PADDLEOCR=false,SKIP_VISION=false,AUTH_MODE=${AUTH_MODE:-required},SUPABASE_URL=${SUPABASE_URL:-}" \
     --set-secrets="VISION_URL=VISION_INTERNAL_URL:latest,TASKS_PROCESSOR_SECRET=TASKS_PROCESSOR_SECRET:latest,ADMIN_PURGE_SECRET=ADMIN_PURGE_SECRET:latest,SUPABASE_ANON_KEY=SUPABASE_ANON_KEY:latest,SCAN_API_KEY=SCAN_API_KEY:latest" \
     "$auth_flag"
@@ -66,5 +71,8 @@ if [[ "${ALLOW_PUBLIC:-true}" == "true" ]]; then
 else
   _run_deploy --no-allow-unauthenticated
 fi
+
+# Push mobile/.env Supabase credentials to Secret Manager + Cloud Run revision.
+"$(dirname "$0")/../gcp/sync_supabase_from_mobile_env.sh"
 
 "$(dirname "$0")/../gcp/post_deploy.sh"

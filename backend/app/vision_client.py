@@ -7,6 +7,8 @@ import httpx
 
 from backend.app.config import get_settings
 from backend.app.schemas import BusinessCardFields
+from backend.app.scan_timing import VISION_LOAD_COLD_THRESHOLD_MS, VisionTimings, mark_vision_warmed
+from backend.app.vision_warmup import ensure_vision_model_loaded
 
 VISION_PROMPT = """You are an expert at reading business cards.
 
@@ -50,10 +52,11 @@ def _vision_request_headers() -> dict[str, str]:
         return {}
 
 
-def extract_fields(image_bytes: bytes, ocr_text: str) -> BusinessCardFields:
+def extract_fields(image_bytes: bytes, ocr_text: str) -> tuple[BusinessCardFields, VisionTimings]:
     settings = get_settings()
     if settings.skip_vision:
-        return _mock_from_ocr(ocr_text)
+        fields = _mock_from_ocr(ocr_text)
+        return fields, VisionTimings(pull_ms=0, request_ms=0, load_ms=None, cold_start=False)
 
     prompt = VISION_PROMPT.format(ocr_text=ocr_text or "(none)")
     b64_image = base64.b64encode(image_bytes).decode("utf-8")
@@ -71,23 +74,48 @@ def extract_fields(image_bytes: bytes, ocr_text: str) -> BusinessCardFields:
         ],
     }
 
-    started = time.perf_counter()
+    vision_was_warm = mark_vision_warmed()
     headers = _vision_request_headers()
-    with httpx.Client(timeout=300.0) as client:
+    vision_base = settings.vision_url.rstrip("/")
+    with httpx.Client(timeout=900.0) as client:
+        pull_ms = ensure_vision_model_loaded(
+            client, vision_base, headers, settings.vision_model
+        )
+        started = time.perf_counter()
         response = client.post(
-            f"{settings.vision_url.rstrip('/')}/api/chat",
+            f"{vision_base}/api/chat",
             json=payload,
             headers=headers,
+            timeout=300.0,
         )
-        response.raise_for_status()
+        if not response.is_success:
+            err_body = response.text[:300]
+            detail = err_body
+            try:
+                detail = response.json().get("error", err_body)
+            except Exception:
+                pass
+            raise RuntimeError(
+                f"Vision service error ({response.status_code}): {detail}"
+            )
         data = response.json()
 
-    elapsed_ms = int((time.perf_counter() - started) * 1000)
-    print(f"vision_request_duration_ms={elapsed_ms}")
+    request_ms = int((time.perf_counter() - started) * 1000)
+    load_ns = data.get("load_duration")
+    load_ms = int(load_ns / 1_000_000) if isinstance(load_ns, (int, float)) else None
+    vision_cold = pull_ms > 0 or (not vision_was_warm) or (
+        load_ms is not None and load_ms >= VISION_LOAD_COLD_THRESHOLD_MS
+    )
+    timings = VisionTimings(
+        pull_ms=pull_ms,
+        request_ms=request_ms,
+        load_ms=load_ms,
+        cold_start=vision_cold,
+    )
 
     content = data.get("message", {}).get("content", "")
     parsed = _parse_json_content(content)
-    return BusinessCardFields.model_validate(parsed)
+    return BusinessCardFields.model_validate(parsed), timings
 
 
 def _parse_json_content(content: str) -> dict:

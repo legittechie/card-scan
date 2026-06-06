@@ -17,6 +17,9 @@ PNG_BYTES = (
 
 @pytest.fixture(autouse=True)
 def _settings(monkeypatch, tmp_path):
+    from backend.app.scan_timing import reset_warm_state
+
+    reset_warm_state()
     monkeypatch.setenv("SQLITE_PATH", str(tmp_path / "test.sqlite"))
     monkeypatch.setenv("UPLOAD_DIR", str(tmp_path / "uploads"))
     monkeypatch.setenv("SYNC_PROCESS", "true")

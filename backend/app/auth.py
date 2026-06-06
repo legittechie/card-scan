@@ -14,6 +14,16 @@ from backend.app.config import get_settings
 API_KEY_OWNER_ID = "api-key"
 
 
+def user_id_from_supabase_user_response(data: object) -> str | None:
+    """Parse GET /auth/v1/user JSON (user object or {user: ...} wrapper)."""
+    if not isinstance(data, dict):
+        return None
+    nested = data.get("user")
+    user = nested if isinstance(nested, dict) else data
+    user_id = user.get("id") if isinstance(user, dict) else None
+    return str(user_id) if user_id else None
+
+
 @dataclass(frozen=True)
 class ScanCaller:
     user_id: str
@@ -50,12 +60,11 @@ async def _validate_supabase_jwt(token: str) -> str:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
     data = resp.json()
-    user = data.get("user") if isinstance(data, dict) else None
-    user_id = user.get("id") if isinstance(user, dict) else None
+    user_id = user_id_from_supabase_user_response(data)
     if not user_id:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
-    return str(user_id)
+    return user_id
 
 
 def _validate_api_key(provided: str | None) -> ScanCaller | None:

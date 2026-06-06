@@ -1,8 +1,11 @@
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
+import time
+
 from backend.app import jobs
 from backend.app.auth import ScanCaller, assert_job_owner, require_scan_caller
 from backend.app.schemas import JobStatusResponse, ScanResponse
+from backend.app.scan_timing import print_scan_accept_timing
 from backend.app.storage import save_upload
 from backend.app.tasks_client import enqueue_process_job
 
@@ -21,12 +24,18 @@ async def scan_card(
     if not content:
         raise HTTPException(status_code=400, detail="Empty file")
 
+    upload_started = time.perf_counter()
     image_uri = save_upload(content, file.filename or "card.jpg")
+    upload_ms = int((time.perf_counter() - upload_started) * 1000)
+
     owner_id = caller.user_id if caller.user_id != "anonymous" else None
     job_id = jobs.create_job(image_uri, owner_id=owner_id)
 
     try:
+        enqueue_started = time.perf_counter()
         enqueue_process_job(job_id)
+        enqueue_ms = int((time.perf_counter() - enqueue_started) * 1000)
+        print_scan_accept_timing(job_id, upload_ms, enqueue_ms)
     except Exception as exc:
         jobs.fail_job(job_id, f"Failed to enqueue: {exc}")
         raise HTTPException(status_code=500, detail=str(exc)) from exc

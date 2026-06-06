@@ -7,6 +7,7 @@ Async business card scanner: **PaddleOCR** + **Llama 3.2 Vision 11B**, FastAPI, 
 ```bash
 cd /Users/dhananjayarya/GDCA/card_scan
 cp .env.example .env
+cp mobile/.env.example mobile/.env   # set EXPO_PUBLIC_SUPABASE_* (canonical for whole repo)
 make install
 make dev
 ```
@@ -66,7 +67,7 @@ Images are pushed to **Artifact Registry** (`us-central1-docker.pkg.dev/PROJECT/
 
 - **Cloud Run** — public URL (`--no-invoker-iam-check`); no Google IAM token required for clients.
 - **`/scan` and `/status`** — app auth when `AUTH_MODE=required` (production default):
-  - **Mobile / Platform:** `Authorization: Bearer <supabase_access_token>` (same Supabase project as Platform).
+  - **Mobile:** `Authorization: Bearer <supabase_access_token>` (same Supabase project as `mobile/.env`).
   - **Scripts / CI:** `X-API-Key: <SCAN_API_KEY>` from Secret Manager.
 - **Local dev:** `AUTH_MODE=disabled` in `.env` (no auth headers).
 - **`/process` and `/admin/*`** — internal only (`X-Tasks-Secret`, `X-Admin-Secret`).
@@ -122,7 +123,7 @@ export SCAN_API_KEY=$(gcloud secrets versions access latest --secret=SCAN_API_KE
 ./scripts/e2e_scan.sh
 ```
 
-Local dev needs no auth (`AUTH_MODE=disabled`). Set `SUPABASE_URL` + `SUPABASE_ANON_KEY` on Cloud Run for JWT clients. Use `USE_GCP_AUTH=true` only if Cloud Run IAM is enabled instead of public invoker.
+Local dev needs no auth (`AUTH_MODE=disabled`). For production JWT auth, Cloud Run reads **`SUPABASE_URL` + `SUPABASE_ANON_KEY` from `mobile/.env`** (via `make sync-supabase` or `./infra/api/deploy.sh`). Use `USE_GCP_AUTH=true` only if Cloud Run IAM is enabled instead of public invoker.
 
 ## Git
 

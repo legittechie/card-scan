@@ -40,6 +40,11 @@ if [[ -n "$VISION_URL" ]]; then
     --role="roles/run.invoker" \
     --quiet >/dev/null
   echo "Granted run.invoker on $VISION_SERVICE -> $API_SA"
+
+  if [[ "${SKIP_VISION_MODEL_PULL:-false}" != "true" ]]; then
+    echo "Ensuring vision model is present (warm instance)..."
+    "$(dirname "$0")/../vision/pull_model.sh" || echo "WARN: pull_model failed; entrypoint/API will pull on next scan"
+  fi
 fi
 
 # Cloud Tasks needs API_BASE_URL and OIDC service account on the API revision
@@ -87,7 +92,7 @@ echo ""
 echo "=== Post-deploy complete ==="
 echo "API_BASE_URL=$API_URL"
 echo ""
-echo "App auth: set SUPABASE_URL + SUPABASE_ANON_KEY to the same Supabase project as Platform."
+echo "App auth: SUPABASE_URL + SUPABASE_ANON_KEY are synced from card_scan/mobile/.env (run infra/gcp/sync_supabase_from_mobile_env.sh to refresh)."
 echo "Smoke test (production uses SCAN_API_KEY from Secret Manager):"
 echo "  export API_BASE_URL=$API_URL"
 echo "  export SCAN_API_KEY=\$(gcloud secrets versions access latest --secret=SCAN_API_KEY --project=$GCP_PROJECT)"
