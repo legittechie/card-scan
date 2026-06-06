@@ -1,23 +1,57 @@
-import { router, useLocalSearchParams } from "expo-router";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Redirect, router, useLocalSearchParams } from "expo-router";
+import { useEffect } from "react";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
+import { isApiSessionRejected, isAuthError } from "../../src/api/cardScanClient";
+import { useAuth } from "../../src/auth/SupabaseProvider";
 import { ResultFields } from "../../src/components/ResultFields";
 import { useJobPoll } from "../../src/hooks/useJobPoll";
 
 export default function ResultScreen() {
   const { jobId } = useLocalSearchParams<{ jobId: string }>();
+  const { session, loading } = useAuth();
   const { data, error: pollError } = useJobPoll(jobId);
 
-  const loading = !data || (data.status !== "completed" && data.status !== "failed");
+  useEffect(() => {
+    if (pollError && isApiSessionRejected(pollError)) {
+      return;
+    }
+    if (isAuthError(pollError)) {
+      router.replace("/login");
+    }
+  }, [pollError]);
+
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
+
+  if (!session) {
+    return <Redirect href="/login" />;
+  }
+
+  const loadingJob = !data || (data.status !== "completed" && data.status !== "failed");
   const failed = data?.status === "failed";
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      {data?.progress_hint && loading ? (
+      {data?.progress_hint && loadingJob ? (
         <Text style={styles.hint}>{data.progress_hint}</Text>
       ) : null}
 
-      {pollError ? <Text style={styles.error}>{pollError}</Text> : null}
+      {pollError && isApiSessionRejected(pollError) ? (
+        <Text style={styles.error}>
+          You're signed in, but the scan server rejected your session. The API must use the same
+          Supabase project as this app.
+        </Text>
+      ) : null}
+
+      {pollError && !isAuthError(pollError) ? (
+        <Text style={styles.error}>{pollError}</Text>
+      ) : null}
 
       {failed ? (
         <View style={styles.failedBox}>
@@ -28,12 +62,12 @@ export default function ResultScreen() {
           </Pressable>
         </View>
       ) : (
-        <ResultFields result={data?.result ?? null} loading={loading} />
+        <ResultFields result={data?.result ?? null} loading={loadingJob} />
       )}
 
-      {loading && !failed ? (
+      {loadingJob && !failed ? (
         <Text style={styles.footerHint}>
-          Usually under 10 seconds when warm; first scan after idle may take up to a minute.
+          Usually under 10 seconds when warm; first scan after idle can take up to 5 minutes.
         </Text>
       ) : null}
     </ScrollView>
@@ -41,6 +75,11 @@ export default function ResultScreen() {
 }
 
 const styles = StyleSheet.create({
+  center: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   container: {
     padding: 20,
     paddingBottom: 40,

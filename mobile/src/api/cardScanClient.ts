@@ -1,10 +1,28 @@
 import { getCardScanApiUrl } from "../config";
 import type { JobStatusResponse } from "../types/cardScan";
 
+export const AUTH_REQUIRED_MESSAGE = "AUTH_REQUIRED";
+export const API_SESSION_REJECTED_MESSAGE = "API_SESSION_REJECTED";
+
+export function isAuthError(message: string | null | undefined): boolean {
+  if (!message) return false;
+  return (
+    message === AUTH_REQUIRED_MESSAGE ||
+    message === API_SESSION_REJECTED_MESSAGE ||
+    message === "Not signed in" ||
+    message.includes("401")
+  );
+}
+
+/** Signed in locally, but scan API rejected the bearer token (usually wrong Supabase project on server). */
+export function isApiSessionRejected(message: string | null | undefined): boolean {
+  return message === API_SESSION_REJECTED_MESSAGE;
+}
+
 async function authHeaders(getAccessToken: () => Promise<string | null>): Promise<HeadersInit> {
   const token = await getAccessToken();
   if (!token) {
-    throw new Error("Not signed in");
+    throw new Error(AUTH_REQUIRED_MESSAGE);
   }
   return { Authorization: `Bearer ${token}` };
 }
@@ -18,6 +36,10 @@ async function fetchWithAuthRetry(
   if (response.status === 401) {
     await refreshSession();
     response = await buildRequest(await authHeaders(getAccessToken));
+    if (response.status === 401) {
+      const token = await getAccessToken();
+      throw new Error(token ? API_SESSION_REJECTED_MESSAGE : AUTH_REQUIRED_MESSAGE);
+    }
   }
   return response;
 }
