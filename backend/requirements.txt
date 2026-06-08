@@ -66,7 +66,7 @@ google-auth==2.53.0
     #   google-cloud-tasks
 google-cloud-core==2.6.0
     # via google-cloud-storage
-google-cloud-storage==3.10.1
+google-cloud-storage==3.11.0
     # via -r requirements.in
 google-cloud-tasks==2.22.0
     # via -r requirements.in
