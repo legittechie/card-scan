@@ -26,3 +26,6 @@ mobile/.expo/
 mobile/dist/
 mobile/.env
 mobile/expo-env.d.ts
+
+# Generated dependency reports (make deps-report)
+reports/

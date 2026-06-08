@@ -1,4 +1,4 @@
-.PHONY: venv install dev test compose-up compose-down e2e mobile-install mobile-dev mobile-dev-prod mobile-dev-tunnel mobile-dev-stop sync-supabase verify-api-auth
+.PHONY: venv install dev test compose-up compose-down e2e mobile-install mobile-dev mobile-dev-prod mobile-dev-tunnel mobile-dev-stop mobile-eas-update mobile-eas-build sync-supabase verify-api-auth deps-lock deps-check deps-outdated deps-report
 
 VENV := .venv
 PYTHON := $(VENV)/bin/python
@@ -9,7 +9,7 @@ venv:
 
 install: venv
 	$(PIP) install --upgrade pip
-	$(PIP) install -r backend/requirements.txt
+	$(PIP) install -r backend/requirements-dev.txt
 
 dev: install
 	@set -a && [ -f .env ] && . ./.env; \
@@ -33,7 +33,40 @@ e2e:
 	./scripts/e2e_scan.sh
 
 mobile-install:
+	cd mobile && npm ci
+
+# Regenerate lock files after bumping package.json or requirements*.in
+deps-lock:
 	cd mobile && npm install
+	./scripts/compile_python_requirements.sh
+
+# Fail if compiled Python locks are stale (requires pip-tools in venv or PATH)
+deps-check:
+	cd mobile && npm ci
+	@$(PIP) install -q pip-tools==7.5.3
+	cd backend && ../$(VENV)/bin/pip-compile --resolver=backtracking --strip-extras --dry-run -o requirements.txt requirements.in >/dev/null
+	cd backend && ../$(VENV)/bin/pip-compile --resolver=backtracking --strip-extras --dry-run -o requirements-dev.txt requirements-dev.in >/dev/null
+	@echo "Dependency locks are up to date."
+
+deps-outdated:
+	@echo "=== mobile (npm outdated) ==="
+	cd mobile && npm outdated || true
+	@echo ""
+	@echo "=== backend (pip outdated) ==="
+	@$(PIP) list --outdated 2>/dev/null || true
+
+# Version / lock health report → reports/deps-*.md (see docs/DEPS_REPORT.md)
+deps-report:
+	@test -x $(PYTHON) && PY=$(PYTHON) || PY=python3; \
+	$$PY scripts/deps_report.py
+
+# Publish JS/UI changes OTA (preview channel — matches current EAS Android builds).
+mobile-eas-update:
+	cd mobile && npm run eas:update
+
+# New native build (preview APK). Use eas:build:production for store releases.
+mobile-eas-build:
+	cd mobile && npm run eas:build
 
 mobile-dev-stop:
 	@echo "Stopping card_scan Metro/Expo listeners on 8081–8090..."

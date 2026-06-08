@@ -18,6 +18,13 @@ def enqueue_process_job(job_id: str) -> None:
             "Cloud Tasks requires GCP_PROJECT. Set SYNC_PROCESS=true for local dev."
         )
 
+    process_url = f"{settings.api_base_url.rstrip('/')}/process"
+    if "localhost" in process_url or "127.0.0.1" in process_url:
+        raise RuntimeError(
+            "API_BASE_URL is not configured for Cloud Run (still localhost). "
+            "Run infra/gcp/post_deploy.sh after deploy."
+        )
+
     from google.cloud import tasks_v2
 
     client = tasks_v2.CloudTasksClient()

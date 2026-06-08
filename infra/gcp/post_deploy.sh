@@ -40,11 +40,6 @@ if [[ -n "$VISION_URL" ]]; then
     --role="roles/run.invoker" \
     --quiet >/dev/null
   echo "Granted run.invoker on $VISION_SERVICE -> $API_SA"
-
-  if [[ "${SKIP_VISION_MODEL_PULL:-false}" != "true" ]]; then
-    echo "Ensuring vision model is present (warm instance)..."
-    "$(dirname "$0")/../vision/pull_model.sh" || echo "WARN: pull_model failed; entrypoint/API will pull on next scan"
-  fi
 fi
 
 # Cloud Tasks needs API_BASE_URL and OIDC service account on the API revision

@@ -1,16 +1,24 @@
-import { Redirect, router, useLocalSearchParams } from "expo-router";
-import { useEffect } from "react";
+import { Redirect, router, useLocalSearchParams, useNavigation } from "expo-router";
+import { useEffect, useLayoutEffect } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { isApiSessionRejected, isAuthError } from "../../src/api/cardScanClient";
 import { useAuth } from "../../src/auth/SupabaseProvider";
 import { ResultFields } from "../../src/components/ResultFields";
+import { SignOutHeaderButton } from "../../src/components/SignOutHeaderButton";
 import { useJobPoll } from "../../src/hooks/useJobPoll";
 
 export default function ResultScreen() {
+  const navigation = useNavigation();
   const { jobId } = useLocalSearchParams<{ jobId: string }>();
   const { session, loading } = useAuth();
   const { data, error: pollError } = useJobPoll(jobId);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => <SignOutHeaderButton />,
+    });
+  }, [navigation, session]);
 
   useEffect(() => {
     if (pollError && isApiSessionRejected(pollError)) {

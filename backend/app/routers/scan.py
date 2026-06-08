@@ -7,6 +7,7 @@ from backend.app.auth import ScanCaller, assert_job_owner, require_scan_caller
 from backend.app.schemas import JobStatusResponse, ScanResponse
 from backend.app.scan_timing import print_scan_accept_timing
 from backend.app.storage import save_upload
+from backend.app.supabase_store import upsert_scan_job
 from backend.app.tasks_client import enqueue_process_job
 
 router = APIRouter(tags=["scan"])
@@ -31,6 +32,10 @@ async def scan_card(
     owner_id = caller.user_id if caller.user_id != "anonymous" else None
     job_id = jobs.create_job(image_uri, owner_id=owner_id)
 
+    row = jobs.get_job(job_id)
+    if row:
+        upsert_scan_job(row)
+
     try:
         enqueue_started = time.perf_counter()
         enqueue_process_job(job_id)
@@ -38,6 +43,9 @@ async def scan_card(
         print_scan_accept_timing(job_id, upload_ms, enqueue_ms)
     except Exception as exc:
         jobs.fail_job(job_id, f"Failed to enqueue: {exc}")
+        failed_row = jobs.get_job(job_id)
+        if failed_row:
+            upsert_scan_job(failed_row)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     return ScanResponse(job_id=job_id)

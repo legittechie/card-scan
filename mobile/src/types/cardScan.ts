@@ -21,6 +21,16 @@ export type JobStatusResponse = {
   progress_hint: string | null;
 };
 
+export type TrackedJob = {
+  jobId: string;
+  submittedAt: number;
+  status: JobStatus;
+  progress_hint: string | null;
+  result: BusinessCardFields | null;
+  error: string | null;
+  pollError: string | null;
+};
+
 export const FIELD_LABELS: { key: keyof BusinessCardFields; label: string }[] = [
   { key: "Name", label: "Name" },
   { key: "Company", label: "Company" },

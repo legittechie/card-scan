@@ -1,4 +1,5 @@
 import { getCardScanApiUrl } from "../config";
+import { debugLog } from "../debugLog";
 import type { JobStatusResponse } from "../types/cardScan";
 
 export const AUTH_REQUIRED_MESSAGE = "AUTH_REQUIRED";
@@ -32,9 +33,18 @@ async function fetchWithAuthRetry(
   refreshSession: () => Promise<void>,
   buildRequest: (headers: HeadersInit) => Promise<Response>,
 ): Promise<Response> {
+  // #region agent log
+  debugLog("cardScanClient.ts", "fetch_with_auth_start", {}, "A");
+  // #endregion
   let response = await buildRequest(await authHeaders(getAccessToken));
   if (response.status === 401) {
+    // #region agent log
+    debugLog("cardScanClient.ts", "fetch_401_refresh_start", {}, "B");
+    // #endregion
     await refreshSession();
+    // #region agent log
+    debugLog("cardScanClient.ts", "fetch_401_refresh_done", {}, "B");
+    // #endregion
     response = await buildRequest(await authHeaders(getAccessToken));
     if (response.status === 401) {
       const token = await getAccessToken();
@@ -59,13 +69,25 @@ export async function uploadScan(
     type: mimeType,
   } as unknown as Blob);
 
+  const apiUrl = `${base}/scan`;
+  // #region agent log
+  debugLog("cardScanClient.ts", "upload_scan_fetch_start", { apiHost: new URL(apiUrl).hostname }, "A");
+  const uploadStartedAt = Date.now();
+  // #endregion
   const response = await fetchWithAuthRetry(getAccessToken, refreshSession, (headers) =>
-    fetch(`${base}/scan`, {
+    fetch(apiUrl, {
       method: "POST",
       headers: headers as Record<string, string>,
       body: form,
     }),
   );
+  // #region agent log
+  debugLog("cardScanClient.ts", "upload_scan_fetch_done", {
+    status: response.status,
+    ok: response.ok,
+    elapsedMs: Date.now() - uploadStartedAt,
+  }, "A");
+  // #endregion
 
   if (!response.ok) {
     const text = await response.text();

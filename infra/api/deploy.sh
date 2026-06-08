@@ -41,7 +41,7 @@ _run_deploy() {
     --no-invoker-iam-check \
     --timeout=900 \
     --set-env-vars="USE_GCS=true,GCS_BUCKET=${GCS_BUCKET:-card-scan-uploads},GCP_PROJECT=${GCP_PROJECT},TASKS_LOCATION=${REGION},TASKS_QUEUE=card-scan-queue,SYNC_PROCESS=false,SKIP_PADDLEOCR=false,SKIP_VISION=false,AUTH_MODE=${AUTH_MODE:-required},SUPABASE_URL=${SUPABASE_URL:-}" \
-    --set-secrets="VISION_URL=VISION_INTERNAL_URL:latest,TASKS_PROCESSOR_SECRET=TASKS_PROCESSOR_SECRET:latest,ADMIN_PURGE_SECRET=ADMIN_PURGE_SECRET:latest,SUPABASE_ANON_KEY=SUPABASE_ANON_KEY:latest,SCAN_API_KEY=SCAN_API_KEY:latest" \
+    --set-secrets="VISION_URL=VISION_INTERNAL_URL:latest,TASKS_PROCESSOR_SECRET=TASKS_PROCESSOR_SECRET:latest,ADMIN_PURGE_SECRET=ADMIN_PURGE_SECRET:latest,SUPABASE_ANON_KEY=SUPABASE_ANON_KEY:latest,SUPABASE_SERVICE_ROLE_KEY=SUPABASE_SERVICE_ROLE_KEY:latest,SCAN_API_KEY=SCAN_API_KEY:latest" \
     "$auth_flag"
 }
 
@@ -71,6 +71,18 @@ if [[ "${ALLOW_PUBLIC:-true}" == "true" ]]; then
 else
   _run_deploy --no-allow-unauthenticated
 fi
+
+# --set-env-vars above replaces all env vars; restore task dispatch URL immediately
+# so Cloud Tasks never enqueue http://localhost:8080/process (default api_base_url).
+API_URL="$(gcloud run services describe "$SERVICE" \
+  --region="$REGION" --project="$GCP_PROJECT" \
+  --format='value(status.url)')"
+gcloud run services update "$SERVICE" \
+  --project="$GCP_PROJECT" \
+  --region="$REGION" \
+  --update-env-vars="API_BASE_URL=${API_URL},TASKS_SERVICE_ACCOUNT=${SA}" \
+  --quiet
+echo "Set API_BASE_URL=${API_URL} and TASKS_SERVICE_ACCOUNT=${SA}"
 
 # Push mobile/.env Supabase credentials to Secret Manager + Cloud Run revision.
 "$(dirname "$0")/../gcp/sync_supabase_from_mobile_env.sh"

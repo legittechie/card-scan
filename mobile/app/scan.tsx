@@ -1,8 +1,7 @@
-import { CameraView, useCameraPermissions } from "expo-camera";
 import Constants from "expo-constants";
 import * as ImageManipulator from "expo-image-manipulator";
-import { router, useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { router, useNavigation } from "expo-router";
+import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   AppState,
@@ -26,9 +25,26 @@ import {
   getCardScanApiTarget,
   getCardScanApiUrl,
 } from "../src/config";
+import { ScanQueueModal } from "../src/components/ScanQueueModal";
+import { SignOutHeaderButton } from "../src/components/SignOutHeaderButton";
 import { usePendingScan, type PendingImage } from "../src/auth/PendingScanContext";
 import { useAuth } from "../src/auth/SupabaseProvider";
-import { ensurePhotosAccessForPicker, launchCardImagePicker } from "../src/permissions/mediaAccess";
+import type { CameraAccessState } from "../src/permissions/cameraAccess";
+import {
+  ensurePhotosAccessForPicker,
+  launchCardImagePicker,
+} from "../src/permissions/mediaAccess";
+import { debugLog } from "../src/debugLog";
+import { useActiveJobs } from "../src/scan/ActiveJobsContext";
+
+const ScanCameraPane = lazy(() =>
+  import("../src/scan/ScanCameraPane").then((mod) => ({ default: mod.ScanCameraPane })),
+);
+
+const DEFAULT_CAMERA_ACCESS: CameraAccessState =
+  Platform.OS === "web"
+    ? { granted: false, status: PermissionStatus.DENIED, canAskAgain: false }
+    : { granted: false, status: PermissionStatus.UNDETERMINED, canAskAgain: true };
 
 function redirectToAuthGate(file: PendingImage, setPendingImage: (f: PendingImage) => void): void {
   setPendingImage(file);
@@ -49,44 +65,97 @@ async function prepareImage(uri: string): Promise<PendingImage> {
 }
 
 export default function ScanScreen() {
-  const cameraRef = useRef<CameraView>(null);
-  const [permission, requestPermission, getPermission] = useCameraPermissions();
+  const navigation = useNavigation();
+  const [cameraAccess, setCameraAccess] = useState<CameraAccessState>(DEFAULT_CAMERA_ACCESS);
   const { session, getAccessToken, supabase } = useAuth();
   const { setPendingImage, consumePendingImage } = usePendingScan();
+  const {
+    jobs: trackedJobs,
+    addJob,
+    removeJob,
+    activeCount,
+    queuedCount,
+    processingCount,
+  } = useActiveJobs();
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [queuedMessage, setQueuedMessage] = useState<string | null>(null);
+  const [queueModalVisible, setQueueModalVisible] = useState(false);
   const [requestingPermission, setRequestingPermission] = useState(false);
   const resumeStartedRef = useRef(false);
   const grantAttemptsRef = useRef(0);
+  const openedSettingsRef = useRef(false);
   const isExpoGo = Constants.appOwnership === "expo";
   const apiTarget = __DEV__ ? getCardScanApiTarget() : null;
   const apiHost = __DEV__ ? new URL(getCardScanApiUrl()).hostname : null;
 
-  useFocusEffect(
-    useCallback(() => {
-      void getPermission();
-    }, [getPermission]),
-  );
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => <SignOutHeaderButton />,
+    });
+  }, [navigation, session]);
 
+  // Only re-check camera after returning from system Settings (user-initiated).
   useEffect(() => {
     const sub = AppState.addEventListener("change", (nextState) => {
-      if (nextState === "active") {
-        void getPermission();
-      }
+      if (nextState !== "active" || !openedSettingsRef.current) return;
+      openedSettingsRef.current = false;
+      void import("../src/permissions/cameraAccess")
+        .then((camera) => camera.getCameraAccessState())
+        .then(setCameraAccess)
+        .catch(() => {});
     });
     return () => sub.remove();
-  }, [getPermission]);
+  }, []);
 
-  const uploadAndNavigate = useCallback(
+  const renderQueueModal = () => {
+    if (!session || trackedJobs.length === 0) return null;
+    return (
+      <ScanQueueModal
+        jobs={trackedJobs}
+        onClose={() => setQueueModalVisible(false)}
+        onDismiss={removeJob}
+        visible={queueModalVisible}
+      />
+    );
+  };
+
+  const renderQueueLink = () => {
+    if (!session || trackedJobs.length === 0) return null;
+    const label =
+      activeCount > 0
+        ? `${activeCount} scan${activeCount === 1 ? "" : "s"} in progress`
+        : `${trackedJobs.length} scan${trackedJobs.length === 1 ? "" : "s"} — view queue`;
+    return (
+      <TouchableOpacity
+        accessibilityRole="button"
+        onPress={() => setQueueModalVisible(true)}
+        style={styles.queueLink}
+      >
+        <Text style={styles.queueLinkText}>{label}</Text>
+      </TouchableOpacity>
+    );
+  };
+
+  const uploadAndQueue = useCallback(
     async (file: PendingImage) => {
       setError(null);
+      // #region agent log
+      debugLog("scan.tsx", "upload_and_queue_start", { uriPrefix: file.uri.slice(0, 32) }, "E");
+      // #endregion
       const token = await getAccessToken();
       if (!token) {
+        // #region agent log
+        debugLog("scan.tsx", "upload_and_queue_no_token", {}, "E");
+        // #endregion
         redirectToAuthGate(file, setPendingImage);
         return;
       }
 
       setUploading(true);
+      // #region agent log
+      debugLog("scan.tsx", "uploading_true", {}, "D");
+      // #endregion
       try {
         const refreshSession = async () => {
           await supabase.auth.refreshSession();
@@ -98,8 +167,18 @@ export default function ScanScreen() {
           getAccessToken,
           refreshSession,
         );
-        router.push(`/result/${job_id}`);
+        // #region agent log
+        debugLog("scan.tsx", "upload_and_queue_success", { jobId: job_id }, "A");
+        // #endregion
+        addJob(job_id);
+        setQueuedMessage("Card queued for scanning");
+        setTimeout(() => setQueuedMessage(null), 3000);
       } catch (err) {
+        // #region agent log
+        debugLog("scan.tsx", "upload_and_queue_error", {
+          message: err instanceof Error ? err.message : String(err),
+        }, "A");
+        // #endregion
         const message = err instanceof Error ? err.message : "Upload failed";
         if (isAuthError(message)) {
           const token = await getAccessToken();
@@ -122,10 +201,13 @@ export default function ScanScreen() {
         }
         setError(message);
       } finally {
+        // #region agent log
+        debugLog("scan.tsx", "uploading_false", {}, "D");
+        // #endregion
         setUploading(false);
       }
     },
-    [getAccessToken, setPendingImage, supabase],
+    [addJob, getAccessToken, setPendingImage, supabase],
   );
 
   useEffect(() => {
@@ -133,49 +215,37 @@ export default function ScanScreen() {
     const file = consumePendingImage();
     if (!file) return;
 
+    // #region agent log
+    debugLog("scan.tsx", "resume_pending_upload", {}, "E");
+    // #endregion
     resumeStartedRef.current = true;
-    void uploadAndNavigate(file).finally(() => {
+    void uploadAndQueue(file).finally(() => {
       resumeStartedRef.current = false;
     });
-  }, [session, consumePendingImage, uploadAndNavigate]);
+  }, [session, consumePendingImage, uploadAndQueue]);
 
   const onImageReady = async (uri: string) => {
     setError(null);
     try {
+      // #region agent log
+      debugLog("scan.tsx", "prepare_image_start", { uriPrefix: uri.slice(0, 32) }, "C");
+      const prepareStartedAt = Date.now();
+      // #endregion
       const file = await prepareImage(uri);
+      // #region agent log
+      debugLog("scan.tsx", "prepare_image_done", {
+        elapsedMs: Date.now() - prepareStartedAt,
+        outUriPrefix: file.uri.slice(0, 32),
+      }, "C");
+      // #endregion
       const token = await getAccessToken();
       if (token) {
-        await uploadAndNavigate(file);
+        await uploadAndQueue(file);
       } else {
         redirectToAuthGate(file, setPendingImage);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not prepare image");
-    }
-  };
-
-  const onCapture = async () => {
-    setError(null);
-
-    if (!permission?.granted) {
-      setRequestingPermission(true);
-      try {
-        await requestPermission();
-        const refreshed = await getPermission();
-        if (!refreshed.granted) {
-          setError("Camera access is required to capture a card.");
-          return;
-        }
-        setError(null);
-        return;
-      } finally {
-        setRequestingPermission(false);
-      }
-    }
-
-    const photo = await cameraRef.current?.takePictureAsync({ quality: 0.9 });
-    if (photo?.uri) {
-      await onImageReady(photo.uri);
     }
   };
 
@@ -212,6 +282,15 @@ export default function ScanScreen() {
     }
   };
 
+  const requestCameraPermission = async (): Promise<CameraAccessState> => {
+    const camera = await import("../src/permissions/cameraAccess");
+    const requested = await camera.requestCameraAccess();
+    const refreshed = await camera.getCameraAccessState();
+    const final = refreshed.granted ? refreshed : requested;
+    setCameraAccess(final);
+    return final;
+  };
+
   const onGrantPermission = async () => {
     setError(null);
     setRequestingPermission(true);
@@ -219,10 +298,7 @@ export default function ScanScreen() {
     const attempt = grantAttemptsRef.current;
 
     try {
-      let result = await requestPermission();
-      const refreshed = await getPermission();
-      const final = refreshed.granted ? refreshed : result;
-
+      const final = await requestCameraPermission();
       if (final.granted) {
         grantAttemptsRef.current = 0;
         return;
@@ -238,6 +314,7 @@ export default function ScanScreen() {
       const shouldOpenSettings = final.canAskAgain === false || attempt >= 2;
 
       if (shouldOpenSettings) {
+        openedSettingsRef.current = true;
         await Linking.openSettings();
         setError(
           isExpoGo
@@ -255,15 +332,45 @@ export default function ScanScreen() {
     }
   };
 
-  if (!permission) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator />
+  const apiTargetBanner =
+    __DEV__ && apiTarget ? (
+      <View style={styles.apiTargetBanner}>
+        <Text style={styles.apiTargetBannerText}>
+          API: {apiTarget} ({apiHost})
+        </Text>
       </View>
+    ) : null;
+
+  if (cameraAccess.granted) {
+    return (
+      <Suspense
+        fallback={
+          <View style={styles.center}>
+            <ActivityIndicator />
+          </View>
+        }
+      >
+        <ScanCameraPane
+          sessionPresent={!!session}
+          apiTargetBanner={apiTargetBanner}
+          uploading={uploading}
+          error={error}
+          queuedMessage={queuedMessage}
+          trackedJobs={trackedJobs}
+          activeCount={activeCount}
+          queuedCount={queuedCount}
+          processingCount={processingCount}
+          queueModalVisible={queueModalVisible}
+          onSetQueueModalVisible={setQueueModalVisible}
+          onRemoveJob={removeJob}
+          onImageReady={onImageReady}
+          onPickGallery={onPickGallery}
+        />
+      </Suspense>
     );
   }
 
-  if (!permission.granted && Platform.OS === "web") {
+  if (Platform.OS === "web") {
     return (
       <View style={styles.center}>
         <Text style={styles.titleWeb}>Scan a business card</Text>
@@ -312,107 +419,64 @@ export default function ScanScreen() {
             <Text style={styles.linkText}>Sign in</Text>
           </TouchableOpacity>
         ) : null}
+
+        {renderQueueLink()}
+        {renderQueueModal()}
       </View>
     );
   }
 
-  if (!permission.granted) {
-    const deniedPermanently = permission.canAskAgain === false;
-    return (
-      <View style={styles.center}>
-        <Text style={styles.titleWeb}>Scan a business card</Text>
-
-        {error ? <Text style={styles.permissionError}>{error}</Text> : null}
-
-        <TouchableOpacity
-          accessibilityRole="button"
-          activeOpacity={0.7}
-          disabled={requestingPermission}
-          onPress={onGrantPermission}
-          style={[styles.button, requestingPermission && styles.buttonDisabled]}
-        >
-          {requestingPermission ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.buttonText}>
-              {deniedPermanently ? "Open Camera" : "Enable camera"}
-            </Text>
-          )}
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          accessibilityRole="button"
-          activeOpacity={0.7}
-          disabled={uploading}
-          onPress={onPickGallery}
-          style={[styles.button, styles.galleryButton]}
-        >
-          <Text style={styles.buttonText}>Or Upload from Gallery</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
+  const deniedPermanently = cameraAccess.canAskAgain === false;
   return (
-    <View style={styles.container}>
-      <CameraView ref={cameraRef} style={styles.camera} facing="back" />
+    <View style={styles.center}>
+      <Text style={styles.titleWeb}>Scan a business card</Text>
 
-      {__DEV__ && apiTarget ? (
-        <View style={styles.apiTargetBanner}>
-          <Text style={styles.apiTargetBannerText}>
-            API: {apiTarget} ({apiHost})
+      {error ? <Text style={styles.permissionError}>{error}</Text> : null}
+
+      <TouchableOpacity
+        accessibilityRole="button"
+        activeOpacity={0.7}
+        disabled={requestingPermission}
+        onPress={onGrantPermission}
+        style={[styles.button, requestingPermission && styles.buttonDisabled]}
+      >
+        {requestingPermission ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={styles.buttonText}>
+            {deniedPermanently ? "Open Camera" : "Enable camera"}
           </Text>
-        </View>
-      ) : null}
+        )}
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        accessibilityRole="button"
+        activeOpacity={0.7}
+        disabled={uploading}
+        onPress={onPickGallery}
+        style={[styles.button, styles.galleryButton]}
+      >
+        <Text style={styles.buttonText}>Or Upload from Gallery</Text>
+      </TouchableOpacity>
 
       {!session ? (
-        <View style={[styles.guestBanner, __DEV__ && apiTarget ? styles.guestBannerWithApiBadge : null]}>
-          <Text style={styles.guestBannerText}>
-            Capture a card — sign in to extract details
-          </Text>
-        </View>
-      ) : null}
-
-      {uploading ? (
-        <View style={styles.overlay}>
-          <ActivityIndicator size="large" color="#fff" />
-          <Text style={styles.overlayText}>Uploading…</Text>
-        </View>
-      ) : null}
-
-      {error ? (
-        <View style={styles.errorBox}>
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
-      ) : null}
-
-      <View style={styles.controls}>
         <TouchableOpacity
+          accessibilityRole="button"
           activeOpacity={0.7}
-          disabled={uploading}
-          onPress={onCapture}
-          style={styles.captureButton}
+          onPress={() => router.push("/login")}
+          style={styles.linkButton}
         >
-          <View style={styles.captureInner} />
+          <Text style={styles.linkText}>Sign in</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          activeOpacity={0.7}
-          disabled={uploading}
-          onPress={onPickGallery}
-          style={styles.galleryLink}
-        >
-          <Text style={styles.galleryLinkText}>Or Upload from Gallery</Text>
-        </TouchableOpacity>
-      </View>
+      ) : null}
+
+      {renderQueueLink()}
+      {renderQueueModal()}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#000" },
-  camera: {
-    ...StyleSheet.absoluteFillObject,
-  },
   center: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24 },
   titleWeb: {
     fontSize: 22,
@@ -450,63 +514,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontWeight: "600",
   },
-  guestBanner: {
-    position: "absolute",
-    top: 48,
-    left: 16,
-    right: 16,
-    backgroundColor: "rgba(17, 24, 39, 0.85)",
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 8,
-  },
-  guestBannerWithApiBadge: {
-    top: 88,
-  },
-  guestBannerText: {
-    color: "#f9fafb",
-    fontSize: 14,
-    textAlign: "center",
-  },
-  controls: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 20,
-    elevation: 20,
-    alignItems: "center",
-    paddingTop: 20,
-    paddingBottom: 28,
-    paddingHorizontal: 16,
-    backgroundColor: "#111827",
-    gap: 16,
-  },
-  galleryLink: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-  },
-  galleryLinkText: {
-    color: "#e5e7eb",
-    fontSize: 15,
-    fontWeight: "500",
-    textAlign: "center",
-  },
-  captureButton: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    borderWidth: 4,
-    borderColor: "#fff",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  captureInner: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: "#fff",
-  },
   button: {
     backgroundColor: "#111827",
     paddingHorizontal: 20,
@@ -529,22 +536,14 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     fontSize: 14,
   },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 12,
+  queueLink: {
+    marginTop: 20,
+    padding: 8,
   },
-  overlayText: { color: "#fff", fontSize: 16 },
-  errorBox: {
-    position: "absolute",
-    top: 96,
-    left: 16,
-    right: 16,
-    backgroundColor: "#fef2f2",
-    padding: 12,
-    borderRadius: 8,
+  queueLinkText: {
+    color: "#2563eb",
+    fontSize: 15,
+    fontWeight: "600",
+    textAlign: "center",
   },
-  errorText: { color: "#b91c1c" },
 });

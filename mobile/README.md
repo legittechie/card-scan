@@ -8,8 +8,10 @@ Standalone iOS + Android client for the card-scan API. Implements the UX contrac
 cd mobile
 cp .env.example .env
 # Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY (card_scan_part project)
-npm install
+npm ci
 ```
+
+Dependency versions are pinned in `package.json` and `package-lock.json`. See [../docs/DEPENDENCIES.md](../docs/DEPENDENCIES.md) for upgrades.
 
 **`mobile/.env` is the single source of truth** for Supabase credentials across this repo: the Expo app, local API (`make dev`), tests, and Cloud Run (`make sync-supabase` / `infra/api/deploy.sh`) all load `EXPO_PUBLIC_SUPABASE_*` from here.
 

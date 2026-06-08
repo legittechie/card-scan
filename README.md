@@ -16,12 +16,23 @@ make dev
 - `GET /status/{job_id}` — poll for result
 - With `SYNC_PROCESS=true`, processing runs inline (no Cloud Tasks)
 
+## Dependencies
+
+Locked installs for reproducible builds. See **[docs/DEPENDENCIES.md](docs/DEPENDENCIES.md)** for upgrade workflow, `make deps-lock`, and Dependabot. On-demand version report: **[docs/DEPS_REPORT.md](docs/DEPS_REPORT.md)**.
+
+```bash
+make install          # backend: requirements-dev.txt (locked)
+make mobile-install   # mobile: npm ci
+make deps-outdated    # see available upgrades
+make deps-report      # markdown report → reports/deps-*.md
+```
+
 ## Virtual environment
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r backend/requirements.txt
+pip install -r backend/requirements-dev.txt
 ```
 
 ## Docker Compose
@@ -99,7 +110,7 @@ SETUP_SCHEDULER=true ./infra/gcp/post_deploy.sh
 
 **Budget alerts:** run `./infra/monitoring/apply_budget.sh` (needs `BILLING_ACCOUNT`) or create in GCP Console per [infra/monitoring/budgets.yaml](infra/monitoring/budgets.yaml).
 
-**Vision cold start:** if scans fail with model not found, run `./infra/vision/pull_model.sh`.
+**Vision cold start:** the vision service pulls the model on instance start; if scans fail with model not found, run `./infra/vision/pull_model.sh`.
 
 ## Reference
 

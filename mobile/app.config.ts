@@ -71,13 +71,21 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   updates: {
     enabled: true,
     url: "https://u.expo.dev/dd349c45-297a-4bef-a595-27a0f70bd586",
+    // Avoid checking/applying OTA on every cold start (suspected reopen crash on preview builds).
+    checkAutomatically: "ON_ERROR_RECOVERY",
   },
   extra: {
-    cardScanApiUrl: process.env.EXPO_PUBLIC_CARD_SCAN_API_URL,
+    cardScanApiUrl:
+      process.env.EXPO_PUBLIC_CARD_SCAN_API_URL ??
+      "https://card-scan-api-827778437977.us-central1.run.app",
     cardScanApiUrlLocal: process.env.EXPO_PUBLIC_CARD_SCAN_API_URL_LOCAL,
-    cardScanApiTarget: process.env.EXPO_PUBLIC_CARD_SCAN_API_TARGET,
-    supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
-    supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+    cardScanApiTarget: process.env.EXPO_PUBLIC_CARD_SCAN_API_TARGET ?? "production",
+    supabaseUrl:
+      process.env.EXPO_PUBLIC_SUPABASE_URL ??
+      "https://dlbdizdhttofpuosvdjb.supabase.co",
+    supabaseAnonKey:
+      process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ??
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRsYmRpemRodHRvZnB1b3N2ZGpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1NTg2OTQsImV4cCI6MjA5NTEzNDY5NH0.XxOYHVMff91r0sZst0zd4kRq9Xviypr9WWpaPaQJ4Y8",
     // Assigned by `eas init`. Required for EAS Build/Update. Not a secret.
     eas: {
       projectId: process.env.EAS_PROJECT_ID ?? "dd349c45-297a-4bef-a595-27a0f70bd586",

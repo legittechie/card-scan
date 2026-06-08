@@ -1,4 +1,3 @@
-import { Camera } from "expo-camera";
 import * as ImagePicker from "expo-image-picker";
 import type { ImagePickerResult } from "expo-image-picker";
 import { PermissionStatus, type PermissionResponse } from "expo-modules-core";
@@ -9,30 +8,6 @@ export type MediaAccessState = Pick<PermissionResponse, "granted" | "status" | "
 /** Android 13+ can pick a single image via the system photo picker without broad storage access. */
 export function usesSystemPhotoPicker(): boolean {
   return Platform.OS === "android" && Platform.Version >= 33;
-}
-
-export async function getCameraAccessState(): Promise<MediaAccessState> {
-  if (Platform.OS === "web") {
-    return { granted: false, status: PermissionStatus.DENIED, canAskAgain: false };
-  }
-  const result = await Camera.getCameraPermissionsAsync();
-  return {
-    granted: result.granted,
-    status: result.status,
-    canAskAgain: result.canAskAgain,
-  };
-}
-
-export async function requestCameraAccess(): Promise<MediaAccessState> {
-  if (Platform.OS === "web") {
-    return { granted: false, status: PermissionStatus.DENIED, canAskAgain: false };
-  }
-  const result = await Camera.requestCameraPermissionsAsync();
-  return {
-    granted: result.granted,
-    status: result.status,
-    canAskAgain: result.canAskAgain,
-  };
 }
 
 export async function getPhotosAccessState(): Promise<MediaAccessState> {

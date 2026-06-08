@@ -4,6 +4,7 @@ from backend.app import jobs
 from backend.app.paddle_ocr import extract_text
 from backend.app.scan_timing import ScanTimingReport, iso_to_ms, print_scan_timing
 from backend.app.storage import read_image
+from backend.app.supabase_store import insert_scanned_card, upsert_scan_job
 from backend.app.vision_client import extract_fields
 
 
@@ -16,6 +17,9 @@ def run_process_pipeline(job_id: str) -> None:
         return
 
     jobs.set_status(job_id, "processing")
+    processing_row = jobs.get_job(job_id)
+    if processing_row:
+        upsert_scan_job(processing_row)
     pipeline_started = time.perf_counter()
     process_started_ms = int(time.time() * 1000)
 
@@ -29,8 +33,12 @@ def run_process_pipeline(job_id: str) -> None:
         result, vision_timings = extract_fields(image_bytes, raw_ocr_text)
         jobs.complete_job(job_id, raw_ocr_text, result)
 
-        pipeline_ms = int((time.perf_counter() - pipeline_started) * 1000)
         completed_row = jobs.get_job(job_id)
+        if completed_row:
+            upsert_scan_job(completed_row)
+            insert_scanned_card(completed_row, result)
+
+        pipeline_ms = int((time.perf_counter() - pipeline_started) * 1000)
         completed_ms = (
             iso_to_ms(completed_row["completed_at"])
             if completed_row and completed_row.get("completed_at")
@@ -66,4 +74,7 @@ def run_process_pipeline(job_id: str) -> None:
         )
     except Exception as exc:
         jobs.fail_job(job_id, str(exc))
+        failed_row = jobs.get_job(job_id)
+        if failed_row:
+            upsert_scan_job(failed_row)
         raise

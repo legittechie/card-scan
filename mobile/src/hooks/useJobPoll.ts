@@ -2,20 +2,8 @@ import { useEffect, useRef, useState } from "react";
 
 import { fetchJobStatus } from "../api/cardScanClient";
 import { useAuth } from "../auth/SupabaseProvider";
+import { nextDelayMs } from "./jobPollTiming";
 import type { JobStatusResponse } from "../types/cardScan";
-
-const INITIAL_INTERVAL_MS = 1500;
-const BACKOFF_CAP_MS = 5000;
-const BACKOFF_AFTER_MS = 30_000;
-
-function nextDelayMs(startedAt: number, pollCount: number): number {
-  const elapsed = Date.now() - startedAt;
-  if (elapsed < BACKOFF_AFTER_MS) {
-    return INITIAL_INTERVAL_MS;
-  }
-  const exponent = Math.max(0, pollCount - Math.floor(BACKOFF_AFTER_MS / INITIAL_INTERVAL_MS));
-  return Math.min(INITIAL_INTERVAL_MS * 2 ** exponent, BACKOFF_CAP_MS);
-}
 
 export function useJobPoll(jobId: string | undefined) {
   const { getAccessToken, supabase } = useAuth();

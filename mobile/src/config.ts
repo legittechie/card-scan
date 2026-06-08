@@ -6,12 +6,10 @@ const PLACEHOLDER_HOSTS = new Set([
   "127.0.0.1",
 ]);
 
-function readEnv(key: string, extraKey: string): string | undefined {
-  const fromEnv = process.env[key];
-  if (fromEnv) return fromEnv;
+function readExtraString(extraKey: string): string | undefined {
   const extra = Constants.expoConfig?.extra as Record<string, unknown> | undefined;
   const value = extra?.[extraKey];
-  return typeof value === "string" ? value : undefined;
+  return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
 function assertResolvableHttpUrl(raw: string, label: string): string {
@@ -103,8 +101,13 @@ export function isProductionCardScanApi(): boolean {
 }
 
 export function getSupabaseConfig(): { url: string; anonKey: string } {
-  const url = readEnv("EXPO_PUBLIC_SUPABASE_URL", "supabaseUrl");
-  const anonKey = readEnv("EXPO_PUBLIC_SUPABASE_ANON_KEY", "supabaseAnonKey");
+  // Embedded launches: values live in app.config `extra` (native manifest).
+  // OTA launches: `extra` may be absent — Metro must inline static process.env.* at bundle time.
+  const url =
+    readExtraString("supabaseUrl") ?? process.env.EXPO_PUBLIC_SUPABASE_URL;
+  const anonKey =
+    readExtraString("supabaseAnonKey") ?? process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
   if (!url || !anonKey) {
     throw new Error("EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY are required");
   }
