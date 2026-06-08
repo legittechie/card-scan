@@ -7,6 +7,6 @@ pydantic-settings==2.14.1
 httpx==0.28.1
 paddlepaddle==2.6.2
 paddleocr==2.9.1
-google-cloud-storage==3.10.1
+google-cloud-storage==3.11.0
 google-cloud-tasks==2.22.0
 google-auth==2.53.0
