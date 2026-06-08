@@ -101,3 +101,4 @@ Record notable upgrades here:
 - **Ollama image** — pinned in [`infra/vision/Dockerfile`](../infra/vision/Dockerfile) (`0.24.0`)
 - **Supabase Postgres** — hosted project version
 - **EAS native fingerprints** — separate from npm lock; new build when native deps change
+- **GitHub deploy automation** — deferred; see [DEPLOY.md](DEPLOY.md)

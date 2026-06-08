@@ -11,7 +11,7 @@ cp .env.example .env
 npm ci
 ```
 
-Dependency versions are pinned in `package.json` and `package-lock.json`. See [../docs/DEPENDENCIES.md](../docs/DEPENDENCIES.md) for upgrades.
+Dependency versions are pinned in `package.json` and `package-lock.json`. See [../docs/DEPENDENCIES.md](../docs/DEPENDENCIES.md) for upgrades. Production OTA/build deploy is manual; GitHub automation is deferred — [../docs/DEPLOY.md](../docs/DEPLOY.md).
 
 **`mobile/.env` is the single source of truth** for Supabase credentials across this repo: the Expo app, local API (`make dev`), tests, and Cloud Run (`make sync-supabase` / `infra/api/deploy.sh`) all load `EXPO_PUBLIC_SUPABASE_*` from here.
 

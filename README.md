@@ -51,6 +51,8 @@ make test
 
 ## Production (GCP)
 
+Deploys are **manual** today (not triggered by GitHub push). See **[docs/DEPLOY.md](docs/DEPLOY.md)** for the full release flow and deferred plan for GitHub → Cloud Run + EAS OTA.
+
 See `infra/gcp/setup.sh`, `infra/vision/deploy.sh`, `infra/api/deploy.sh`.
 
 **Region:** The live stack is in **`us-central1`** (API, vision, Artifact Registry, Cloud Tasks). Do not point `gcloud run deploy` at another region unless you also create a Tasks queue and vision there. Images live in Artifact Registry at `us-central1-docker.pkg.dev/...`; set `AR_REGION=us-central1` when deploying Cloud Run elsewhere:
@@ -89,12 +91,13 @@ Extracted fields: `Name`, `Company`, `Title`, `Phone`, `Email`, `Website`, `Addr
 
 ## Mobile
 
-Expo app in [mobile/](mobile/README.md): Supabase sign-in, camera upload, skeleton result polling.
+Expo app in [mobile/](mobile/README.md): Supabase sign-in, camera upload, skeleton result polling. OTA and EAS builds are manual — see [docs/DEPLOY.md](docs/DEPLOY.md).
 
 ```bash
 make mobile-install
 cp mobile/.env.example mobile/.env   # fill Supabase + API URL
 make mobile-dev
+make mobile-eas-update   # publish JS to EAS preview channel (production ship)
 ```
 
 ## Ops
