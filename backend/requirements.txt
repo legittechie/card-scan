@@ -34,12 +34,8 @@ charset-normalizer==3.4.7
     # via requests
 click==8.4.1
     # via uvicorn
-contourpy==1.3.3
-    # via matplotlib
 cryptography==48.0.0
     # via google-auth
-cycler==0.12.1
-    # via matplotlib
 cython==3.2.5
     # via paddleocr
 decorator==5.3.1
@@ -49,9 +45,7 @@ fastapi==0.136.1
 fire==0.7.1
     # via paddleocr
 fonttools==4.63.0
-    # via
-    #   matplotlib
-    #   paddleocr
+    # via paddleocr
 google-api-core==2.31.0
     # via
     #   google-cloud-core
@@ -110,23 +104,15 @@ idna==3.18
     #   httpx
     #   requests
 imageio==2.37.3
-    # via
-    #   imgaug
-    #   scikit-image
-imgaug==0.4.0
-    # via paddleocr
+    # via scikit-image
 joblib==1.5.3
     # via scikit-learn
-kiwisolver==1.5.0
-    # via matplotlib
 lazy-loader==0.5
     # via scikit-image
 lmdb==2.2.1
     # via paddleocr
 lxml==6.1.1
     # via python-docx
-matplotlib==3.10.9
-    # via imgaug
 narwhals==2.22.1
     # via scikit-learn
 networkx==3.6.1
@@ -135,10 +121,7 @@ numpy==1.26.4
     # via
     #   albucore
     #   albumentations
-    #   contourpy
     #   imageio
-    #   imgaug
-    #   matplotlib
     #   opencv-contrib-python
     #   opencv-python
     #   opencv-python-headless
@@ -153,9 +136,7 @@ numpy==1.26.4
 opencv-contrib-python==4.11.0.86
     # via paddleocr
 opencv-python==4.11.0.86
-    # via
-    #   imgaug
-    #   paddleocr
+    # via paddleocr
 opencv-python-headless==4.11.0.86
     # via
     #   albucore
@@ -165,17 +146,14 @@ opt-einsum==3.3.0
 packaging==26.2
     # via
     #   lazy-loader
-    #   matplotlib
     #   scikit-image
-paddleocr==2.9.1
+paddleocr==2.10.0
     # via -r requirements.in
 paddlepaddle==2.6.2
     # via -r requirements.in
 pillow==12.2.0
     # via
     #   imageio
-    #   imgaug
-    #   matplotlib
     #   paddleocr
     #   paddlepaddle
     #   scikit-image
@@ -210,10 +188,6 @@ pydantic-core==2.46.4
     # via pydantic
 pydantic-settings==2.14.1
     # via -r requirements.in
-pyparsing==3.3.2
-    # via matplotlib
-python-dateutil==2.9.0.post0
-    # via matplotlib
 python-docx==1.2.0
     # via paddleocr
 python-dotenv==1.2.2
@@ -237,24 +211,16 @@ requests==2.34.2
 scikit-image==0.26.0
     # via
     #   albumentations
-    #   imgaug
     #   paddleocr
 scikit-learn==1.9.0
     # via albumentations
 scipy==1.17.1
     # via
     #   albumentations
-    #   imgaug
     #   scikit-image
     #   scikit-learn
 shapely==2.1.2
-    # via
-    #   imgaug
-    #   paddleocr
-six==1.17.0
-    # via
-    #   imgaug
-    #   python-dateutil
+    # via paddleocr
 soupsieve==2.8.4
     # via beautifulsoup4
 starlette==1.2.1
