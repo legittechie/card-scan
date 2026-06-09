@@ -3,6 +3,8 @@ import { useURL } from "expo-linking";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
+import { AppMetrics } from "expo-observe";
+
 import { useAuth } from "../../src/auth/SupabaseProvider";
 
 function isSupabaseAuthCallbackUrl(url: string): boolean {
@@ -26,6 +28,7 @@ export default function AuthCallbackScreen() {
   useEffect(() => {
     if (!url) return;
     if (!isSupabaseAuthCallbackUrl(url)) {
+      AppMetrics.markInteractive();
       router.replace("/scan");
       return;
     }
@@ -36,10 +39,12 @@ export default function AuthCallbackScreen() {
       if (cancelled) return;
 
       if (!result.ok) {
+        AppMetrics.markInteractive();
         setError(result.reason ?? "Could not confirm your email from this link.");
         return;
       }
 
+      AppMetrics.markInteractive();
       router.replace("/scan");
     })();
 

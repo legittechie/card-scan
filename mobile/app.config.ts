@@ -15,9 +15,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   scheme: "cardscan",
   userInterfaceStyle: "automatic",
   platforms: ["ios", "android"],
-  // Reanimated 4 (and worklets) require the New Architecture; SDK 54 supports it
-  // and Expo Go already runs this app under New Arch. Old Arch breaks the Gradle build.
-  newArchEnabled: true,
   ios: {
     supportsTablet: true,
     bundleIdentifier: "io.gdca.cardscan",
